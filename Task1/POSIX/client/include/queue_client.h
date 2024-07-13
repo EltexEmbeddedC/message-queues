@@ -1,0 +1,4 @@
+#ifndef QUEUE_CLIENT_H
+#define QUEUE_CLIENT_H
+
+#endif // QUEUE_CLIENT_H
