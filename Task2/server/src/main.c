@@ -10,6 +10,7 @@
 #include <malloc.h>
 #include <sys/ipc.h>
 #include <errno.h>
+#include <sys/select.h>
 
 #define REG_QUEUE_NAME "reg_queue"
 #define MAX_NAME_LEN 32
@@ -57,15 +58,15 @@ void handle_sigint(int sig);
 void create_file(const char * filename);
 int register_user(User user);
 void add_user(User user);
-void demo_data();
 void send_data_to_new_user(User user);
 void add_message(Message msg);
 void disconnect_user(User user);
 void remove_user(int id);
+void send_broadcast(Msgbuf buf, int exeption_id);
+void sleep_for_milliseconds(long milliseconds);
 
 int main() {
     signal(SIGINT, handle_sigint);
-    demo_data();
 
     create_file(REG_QUEUE_NAME);
     key_t reg_key = ftok(REG_QUEUE_NAME, 10);
@@ -87,26 +88,6 @@ int main() {
     cleanup_and_exit();
 
     return 0;
-}
-
-void demo_data(){
-    Message m1, m2, m3;
-    
-    strcpy(m1.username, "user1");
-    strcpy(m1.message, "msg1");
-    strcpy(m1.datetime, "15.07.2024");
-    
-    strcpy(m2.username, "user2");
-    strcpy(m2.message, "msg2");
-    strcpy(m2.datetime, "16.07.2024");
-
-    strcpy(m3.username, "user3");
-    strcpy(m3.message, "msg3");
-    strcpy(m3.datetime, "17.07.2024");
-
-    add_message(m1);
-    add_message(m2);
-    add_message(m3);
 }
 
 void remove_user(int id) {
@@ -170,6 +151,7 @@ void add_message(Message message) {
 void handle_events() {
     Msgbuf msg;
     User user;
+    Message message;
 
     while (1) {
         if (msgrcv(reg_queue, &msg, sizeof(Msgbuf) - sizeof(long), CLIENT, IPC_NOWAIT) >= 0) {
@@ -193,13 +175,18 @@ void handle_events() {
             switch (msg.msg_type) {
                 case MSGINFO:
                     printf("Received message from %s: %s\n", msg.username, msg.message);
-                    break;
-                case USERINFO:
-                    printf("User %s has joined the chat.\n", msg.username);
+                    msg.mtype = SERVER;
+                    send_broadcast(msg, users[i].id);
+
+                    strcpy(message.username, msg.username);
+                    strcpy(message.message, msg.message);
+                    strcpy(message.datetime, msg.datetime);
+                    add_message(message);
                     break;
                 }
             }
         }
+        sleep_for_milliseconds(200);
     }
 }
 
@@ -322,4 +309,11 @@ void create_file(const char * filename){
 
 void handle_sigint(int sig) {
     cleanup_and_exit();
+}
+
+void sleep_for_milliseconds(long milliseconds) {
+    struct timeval tv;
+    tv.tv_sec = milliseconds / 1000;
+    tv.tv_usec = (milliseconds % 1000) * 1000;
+    select(0, NULL, NULL, NULL, &tv);
 }
