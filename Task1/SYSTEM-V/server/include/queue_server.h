@@ -8,7 +8,7 @@
 #include <sys/msg.h>
 #include <unistd.h>
 
-#define QUEUE_PERMISSIONS 0660
+#define QUEUE_PERMISSIONS 0666
 #define N 100
 
 struct msgbuf {
