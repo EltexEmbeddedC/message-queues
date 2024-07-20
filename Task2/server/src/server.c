@@ -128,7 +128,7 @@ void handle_events() {
                 }
             }
         }
-        sleep_for_milliseconds(200);
+        sleep_for_milliseconds(10);
     }
 }
 

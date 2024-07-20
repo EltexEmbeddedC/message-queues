@@ -13,6 +13,7 @@ WINDOW *msg_win_border, *user_win_border, *input_win_border;
 int msg_win_height, msg_win_width;
 int user_win_height, user_win_width;
 int input_win_height, input_win_width;
+int key_catcher[3];
 
 int msg_scroll_pos;
 int user_scroll_pos;
@@ -64,7 +65,9 @@ void display_messages() {
     werase(msg_win);
     int start = messages_size - msg_scroll_pos - msg_win_height / 2;
     if (start < 0) start = 0;
-    for (int i = start; i < messages_size; i++) {
+    for (int i = start; i < start + msg_win_height / 2; i++) {
+        if (i >= messages_size) break;
+
         wattron(msg_win, COLOR_PAIR(1));
         wprintw(msg_win, "%s: ", messages[i].username);
         wattroff(msg_win, COLOR_PAIR(1));
@@ -82,6 +85,8 @@ void display_users() {
     werase(user_win);
     int start = user_scroll_pos;
     for (int i = start; i < users_size; i++) {
+        if (i >= users_size) break;
+
         wprintw(user_win, "%s\n", users[i].username);
     }
     wrefresh(user_win);
@@ -101,15 +106,28 @@ void* handle_input(void*){
     }
 }
 
+void catch(const char ch) {
+    key_catcher[0] = key_catcher [1];
+    key_catcher[1] = key_catcher[2];
+    key_catcher[2] = ch;
+}
+
+bool is_key_up(){
+    return key_catcher[0] == 27 && key_catcher[1] == 91 && key_catcher[2] == 65;
+}
+
+bool is_key_down(){
+    return key_catcher[0] == 27 && key_catcher[1] == 91 && key_catcher[2] == 66;
+}
+
 void read_message() {
     int ch;
     int input_index = strlen(input_message);
 
     while ((ch = wgetch(input_win)) != '\n') {
-        if (ch == 27) { // Escape key
-            cleanup_and_exit();
-            exit(0);
-        } else if (ch == KEY_BACKSPACE || ch == 127 || ch == '\b') {
+        catch(ch);
+
+        if (ch == KEY_BACKSPACE || ch == 127 || ch == '\b') {
             if (input_index > 0) {
                 input_message[--input_index] = '\0';
             }
@@ -118,9 +136,12 @@ void read_message() {
             display_messages();
             display_users();
             display_input();
-        } else if (ch == '\t') { // Tab key
+        } else if (ch == '\t') {
             switch_window();
-        } else if (ch == KEY_UP) {
+        } else if (is_key_up()) {
+            input_index -= 2;
+            input_message[input_index] = '\0';
+
             if (active_window == 0 && msg_scroll_pos < messages_size - msg_win_height / 2) {
                 msg_scroll_pos++;
                 display_messages();
@@ -128,7 +149,10 @@ void read_message() {
                 user_scroll_pos++;
                 display_users();
             }
-        } else if (ch == KEY_DOWN) {
+        } else if (is_key_down()) {
+            input_index -= 2;
+            input_message[input_index] = '\0';
+
             if (active_window == 0 && msg_scroll_pos > 0) {
                 msg_scroll_pos--;
                 display_messages();
@@ -161,6 +185,9 @@ void switch_window() {
 void run_messanger(const char *username) {
     strcpy(input_message, "");
     signal(SIGINT, handle_sigint);
+    key_catcher[0] = 0;
+    key_catcher[1] = 0;
+    key_catcher[2] = 0;
 
     Msgbuf reg_message, resp;
     key_t reg_key = ftok(REG_QUEUE_NAME, 10);
@@ -275,7 +302,7 @@ void* handle_events(void*){
                     break;
             }
         }
-        sleep_for_milliseconds(200);
+        sleep_for_milliseconds(10);
     }
 }
 
